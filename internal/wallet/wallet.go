@@ -12,12 +12,19 @@ import (
 type Wallet struct {
 	Client  *client.Client
 	Key     *util.Key
+	Address string
 	Balance uint64
 }
 
 func NewWallet(client *client.Client) *Wallet {
+	key := util.NewKey()
+	key.GenerateKey()
+	address := util.EncodeAddress(bytes.Join([][]byte{key.PublicKey.X.Bytes(), key.PublicKey.Y.Bytes()}, []byte{}))
+	log.Printf("address:%s", address)
 	return &Wallet{
 		Client:  client,
+		Key:     key,
+		Address: address,
 		Balance: 0,
 	}
 }
