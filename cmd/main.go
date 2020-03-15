@@ -5,11 +5,15 @@ import (
 	"block_chain_go/pkg/client"
 	"block_chain_go/pkg/protocol/common"
 	"block_chain_go/pkg/protocol/message"
+	"block_chain_go/pkg/util"
 	"log"
 	"time"
 )
 
 func main() {
+	k := util.NewKey()
+	k.GenerateKey()
+	log.Printf("key: %+v, %+v,%+v", k.PrivateKey.D.Bytes(), k.PublicKey.X.Bytes(), k.PublicKey.Y.Bytes())
 	c := client.NewClient("testnet-seed.bitcoin.jonasschnelli.ch:18333")
 	defer c.Conn.Close()
 	log.Printf("remote addr: %s", c.Conn.RemoteAddr().String())

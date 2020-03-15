@@ -4,12 +4,14 @@ import (
 	"block_chain_go/pkg/client"
 	"block_chain_go/pkg/protocol/common"
 	"block_chain_go/pkg/protocol/message"
+	"block_chain_go/pkg/util"
 	"bytes"
 	"log"
 )
 
 type Wallet struct {
 	Client  *client.Client
+	Key     *util.Key
 	Balance uint64
 }
 
