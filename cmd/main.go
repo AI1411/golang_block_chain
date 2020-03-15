@@ -1,10 +1,10 @@
 package main
 
 import (
+	"block_chain_go/internal/wallet"
 	"block_chain_go/pkg/client"
 	"block_chain_go/pkg/protocol/common"
 	"block_chain_go/pkg/protocol/message"
-	"bytes"
 	"log"
 	"time"
 )
@@ -34,52 +34,13 @@ func main() {
 		Relay:       false,
 	}
 
-	_,err := c.SendMessage(v)
+	_, err := c.SendMessage(v)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	buf, err := c.ReceiveMessage(common.MessageLen)
-	if err != nil {
-		log.Fatal(err)
-	}
+	wallet := wallet.NewWallet(c)
+	wallet.Handshake()
 
-	var header [24]byte
-	copy(header[:], buf)
-	msg := common.DecodeMessageHeader(header)
-	log.Printf("receive: %s %d", msg.Command, msg.Length)
-	payload, err := c.ReceiveMessage(msg.Length)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if bytes.HasPrefix(msg.Command[:], []byte("verack")) {
-		log.Printf("receive verack: %+v", payload)
-	} else if bytes.HasPrefix(msg.Command[:], []byte("version")) {
-		log.Printf("receive version: %+v", payload)
-		_,err := c.SendMessage(&message.Verack{})
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	buf2, err := c.ReceiveMessage(common.MessageLen)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var header2 [24]byte
-	copy(header2[:], buf2)
-	msg2 := common.DecodeMessageHeader(header2)
-	payload2, err := c.ReceiveMessage(msg2.Length)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if bytes.HasPrefix(msg2.Command[:], []byte("verack")) {
-		log.Printf("recieve verack:%+v", payload2)
-	} else if bytes.HasPrefix(msg2.Command[:], []byte("version")) {
-		log.Printf("receive version: %+v", payload2)
-		c.SendMessage(&message.Verack{})
-	}
+	log.Printf("finish")
 }
