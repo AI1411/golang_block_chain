@@ -3,8 +3,6 @@ package client
 import (
 	"block_chain_go/pkg/protocol/common"
 	"block_chain_go/pkg/protocol/message"
-	"block_chain_go/pkg/util"
-	"encoding/binary"
 	"log"
 	"net"
 )
@@ -22,16 +20,7 @@ func NewClient(ip string) *Client {
 }
 
 func (c *Client) SendMessage(msg message.Message) (int, error) {
-	var checksum [4]byte
-	hashMsg := util.Hash256(msg.Encode())
-	copy(checksum[:], hashMsg[0:4])
-	message := &common.Message{
-		Magic:    binary.LittleEndian.Uint32([]byte{0x0B, 0x11, 0x09, 0x07}),
-		Command:  msg.Command(),
-		Length:   uint32(len(msg.Encode())),
-		Checksum: checksum,
-		Payload:  msg.Encode(),
-	}
+	message := common.NewMessage(msg.Command(), msg.Encode())
 	return c.Conn.Write(message.Encode())
 }
 
