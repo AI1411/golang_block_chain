@@ -29,7 +29,7 @@ func NewFilterload(size uint32, nHashfuncs uint32, queries [][]byte) *Filterload
 			seed := uint32(i)*0xFBA4C795 + nTweakUint32
 			hashValue := murmur3.Sum32WithSeed(query, seed)
 			adjustHashValue := hashValue % (size * uint32(8))
-			idx := 1 << (uint32(7) & hashValue)
+			idx := adjustHashValue >> 3
 			value := 1 << (uint32(7) & hashValue)
 			byteArray[idx] = byte(value)
 		}
