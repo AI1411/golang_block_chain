@@ -26,7 +26,7 @@ func (g *GetBlocks) Command() [12]byte {
 	return commandName
 }
 
-func NewGetBlock(version uint32, blockLocatorHashes [][32]byte, hashStop [32]byte) *GetBlocks {
+func NewGetBlocks(version uint32, blockLocatorHashes [][32]byte, hashStop [32]byte) *GetBlocks {
 	length := len(blockLocatorHashes)
 	hashCount := common.NewVarInt(uint64(length))
 	return &GetBlocks{
