@@ -1,4 +1,4 @@
-package wallet
+package spv
 
 import (
 	"block_chain_go/pkg/client"
@@ -10,20 +10,20 @@ import (
 	"log"
 )
 
-type Wallet struct {
+type SPV struct {
 	Client  *client.Client
 	Key     *util.Key
 	Address string
 	Balance uint64
 }
 
-func NewWallet(client *client.Client) *Wallet {
+func NewSPV(client *client.Client) *SPV {
 	key := util.NewKey()
 	key.GenerateKey()
 	serializedPubKey := key.PublicKey.SerializeUncompressed()
 	address := util.EncodeAddress(serializedPubKey)
 	//log.Printf("address:%s", address)
-	return &Wallet{
+	return &SPV{
 		Client:  client,
 		Key:     key,
 		Address: address,
@@ -31,9 +31,9 @@ func NewWallet(client *client.Client) *Wallet {
 	}
 }
 
-func (w *Wallet) Handshake() error {
+func (s *SPV) Handshake() error {
 	v := message.NewVersion()
-	_, err := w.Client.SendMessage(v)
+	_, err := s.Client.SendMessage(v)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (w *Wallet) Handshake() error {
 			log.Printf("success handshake")
 			return nil
 		}
-		buf, err := w.Client.ReceiveMessage(common.MessageLen)
+		buf, err := s.Client.ReceiveMessage(common.MessageLen)
 		if err != nil {
 			log.Printf("handshake Receive massage error: %+v", err)
 			return err
@@ -52,7 +52,7 @@ func (w *Wallet) Handshake() error {
 		var header [24]byte
 		copy(header[:], buf)
 		msg := common.DecodeMessageHeader(header)
-		_, err = w.Client.ReceiveMessage(msg.Length)
+		_, err = s.Client.ReceiveMessage(msg.Length)
 		if err != nil {
 			return err
 		}
@@ -61,7 +61,7 @@ func (w *Wallet) Handshake() error {
 			recvVerack = true
 		} else if bytes.HasPrefix(msg.Command[:], []byte("version")) {
 			recvVersion = true
-			_, err := w.Client.SendMessage(&message.Verack{})
+			_, err := s.Client.SendMessage(&message.Verack{})
 			if err != nil {
 				return err
 			}
@@ -69,9 +69,9 @@ func (w *Wallet) Handshake() error {
 	}
 }
 
-func (w *Wallet) MessageHandler() {
+func (s *SPV) MessageHandler() {
 	for {
-		buf, err := w.Client.ReceiveMessage(common.MessageLen)
+		buf, err := s.Client.ReceiveMessage(common.MessageLen)
 		if err != nil {
 			//log.Printf("message handler err: %+v", err)
 			log.Fatal("message handler err: ", err)
@@ -82,52 +82,62 @@ func (w *Wallet) MessageHandler() {
 		msg := common.DecodeMessageHeader(header)
 
 		if bytes.HasPrefix(msg.Command[:], []byte("verack")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("version")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("sendheaders")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("sendcmpct")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("ping")) {
-			b, _ := w.Client.ReceiveMessage(msg.Length)
+			b, _ := s.Client.ReceiveMessage(msg.Length)
 			ping := message.DecodePing(b)
 			pong := message.Pong{
 				Nonce: ping.Nonce,
 			}
-			w.Client.SendMessage(&pong)
+			s.Client.SendMessage(&pong)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("addr")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("getheaders")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("feefilter")) {
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("inv")) {
 			log.Printf("msg: %+v", msg)
-			b, _ := w.Client.ReceiveMessage(msg.Length)
+			b, _ := s.Client.ReceiveMessage(msg.Length)
 			inv, _ := message.DecodeInv(b)
 			log.Printf("inv: %+v", inv.Count)
 
-			inventory := []*common.InvVect{}
+			inventory := []*message.InvVect{}
 			for _, iv := range inv.Inventory {
-				if iv.Type == common.InvTypeMsgBlock {
-					inventory = append(inventory, common.NewInvVect(common.InvTypeMsgFilteredBlock, iv.Hash))
+				if iv.Type == message.InvTypeMsgBlock {
+					inventory = append(inventory, message.NewInvVect(message.InvTypeMsgFilteredBlock, iv.Hash))
 				}
 			}
-			w.Client.SendMessage(message.NewGetData(inventory))
+			s.Client.SendMessage(message.NewGetData(inventory))
 		} else if bytes.HasPrefix(msg.Command[:], []byte("merkleblock")) {
-			b, _ := w.Client.ReceiveMessage(msg.Length)
+			b, _ := s.Client.ReceiveMessage(msg.Length)
 			mb, _ := message.DecodeMerkleBlock(b)
 			log.Printf("merkleblock: %+v", mb)
 			h := mb.GetBlockHash()
 			hexHash := hex.EncodeToString(util.ReverseBytes(h[:]))
 			log.Printf("BlockHash: %s", hexHash)
 			log.Printf("Hashes length:%+v", len(mb.Hashes))
-			txs := mb.Validate()
-			log.Printf("txs: %+v", txs)
+			txHashes := mb.Validate()
+			log.Printf("txhashes: %+v", txHashes)
+			inventory := []*message.InvVect{}
+			for _, txHash := range txHashes {
+				inventory = append(inventory, message.NewInvVect(message.InvTypeMsgTx, txHash))
+			}
+			s.Client.SendMessage(message.NewGetData(inventory))
+		} else if bytes.HasPrefix(msg.Command[:], []byte("tx")) {
+			b, _ := s.Client.ReceiveMessage(msg.Length)
+			tx, _ := message.DecodeTx(b)
+			log.Printf("tx: %+v", tx)
+			log.Printf("txID: %+v", tx.ID())
 		} else {
 			log.Printf("receive: other")
-			w.Client.ReceiveMessage(msg.Length)
+			s.Client.ReceiveMessage(msg.Length)
 		}
 	}
 }
