@@ -5,7 +5,6 @@ import (
 	"block_chain_go/pkg/client"
 	"block_chain_go/pkg/protocol/message"
 	"block_chain_go/pkg/util"
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -13,10 +12,9 @@ import (
 )
 
 func main() {
-	c := client.NewClient("testnet-seed.bitcoin.jonasschnelli.ch:18333")
+	c := client.NewClient("[2604:a880:2:d0::2065:5001]:18333")
 	defer c.Conn.Close()
 	log.Printf("remote addr: %s", c.Conn.RemoteAddr().String())
-
 	wallet := wallet.NewWallet(c)
 	wallet.Handshake()
 
@@ -24,20 +22,19 @@ func main() {
 		log.Fatal("handshake error", err)
 	}
 
-	pubkey := bytes.Join([][]byte{wallet.Key.PublicKey.X.Bytes(), wallet.Key.PublicKey.Y.Bytes()}, []byte{})
-	wallet.Client.SendMessage(message.NewFilterload(1024, 10, [][]byte{pubkey}))
+	pubKeyHash := util.Hash160(wallet.Key.PublicKey.SerializeUncompressed())
+	wallet.Client.SendMessage(message.NewFilterload(1024, 10, [][]byte{pubKeyHash}))
 
-	startBlockHash, err := hex.DecodeString("0000000000000657bda6681e1a3d1aac92d09d31721e8eedbca98cac73e93226")
+	startBlockHash, err := hex.DecodeString("000000000000020c54ca0a429835b14ba2f1629562547d39a0523af5dd518865")
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	var arr [32]byte
-	copy(arr[:], util.ReverseBytes(startBlockHash))
-	getblocks := message.NewGetBlocks(uint32(700015), [][32]byte{arr}, message.ZeroHash)
+	var reversedStartBlockHash [32]byte
+	copy(reversedStartBlockHash[:], util.ReverseBytes(startBlockHash))
+	getblocks := message.NewGetBlocks(uint32(70015), [][32]byte{reversedStartBlockHash}, message.ZeroHash)
 	wallet.Client.SendMessage(getblocks)
 
 	wallet.MessageHandler()
 	log.Printf("finish")
 }
-

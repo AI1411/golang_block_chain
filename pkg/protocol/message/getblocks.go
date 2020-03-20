@@ -2,6 +2,7 @@ package message
 
 import (
 	"block_chain_go/pkg/protocol/common"
+	"block_chain_go/pkg/util"
 	"bytes"
 	"encoding/binary"
 )
@@ -27,13 +28,15 @@ func (g *GetBlocks) Command() [12]byte {
 }
 
 func NewGetBlocks(version uint32, blockLocatorHashes [][32]byte, hashStop [32]byte) *GetBlocks {
+	var reversedHashStop [32]byte
+	copy(reversedHashStop[:], util.ReverseBytes(hashStop[:]))
 	length := len(blockLocatorHashes)
 	hashCount := common.NewVarInt(uint64(length))
 	return &GetBlocks{
 		Version:            version,
 		HashCount:          hashCount,
 		BlockLocatorHashes: blockLocatorHashes,
-		HashStop:           hashStop,
+		HashStop:           reversedHashStop,
 	}
 }
 
