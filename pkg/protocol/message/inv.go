@@ -42,9 +42,10 @@ func DecodeInv(b []byte) (*Inv, error) {
 	}, nil
 }
 
-
-func (inv *Inv) CommandName() string {
-	return "inv"
+func (inv *Inv) Command() [12]byte {
+	var commandName [12]byte
+	copy(commandName[:], "inv")
+	return commandName
 }
 
 func (inv *Inv) Encode() []byte {
