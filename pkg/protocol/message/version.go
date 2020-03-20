@@ -4,6 +4,7 @@ import (
 	"block_chain_go/pkg/protocol/common"
 	"bytes"
 	"encoding/binary"
+	"time"
 )
 
 type Version struct {
@@ -16,6 +17,27 @@ type Version struct {
 	UserAgent   *common.VarStr
 	StartHeight uint32
 	Relay       bool
+}
+
+func NewVersion() *Version {
+	addrFrom := &common.NetworkAddress{
+		Services: uint64(1),
+		IP:       [16]byte{
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x7F, 0x00, 0x00, 0x01,
+		},
+		Port:     18333,
+	}
+	return &Version{
+		Version:     uint32(70015),
+		Services:    uint64(1),
+		Timestamp:   uint64(time.Now().Unix()),
+		AddrRecv:    addrFrom,
+		AddrFrom:    addrFrom,
+		Nonce:       uint64(0),
+		UserAgent:   common.NewVarStr([]byte("")),
+		StartHeight: uint32(0),
+		Relay:       false,
+	}
 }
 
 func (v *Version) Command() [12]byte {

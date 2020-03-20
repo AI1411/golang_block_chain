@@ -40,3 +40,4 @@ func main() {
 	wallet.MessageHandler()
 	log.Printf("finish")
 }
+

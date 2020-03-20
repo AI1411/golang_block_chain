@@ -10,7 +10,7 @@ import (
 )
 
 type Filterload struct {
-	Count      *common.VarInt
+	Length      *common.VarInt
 	Filter     []byte
 	NHashFuncs uint32
 	NTweak     uint32
@@ -35,7 +35,7 @@ func NewFilterload(size uint32, nHashfuncs uint32, queries [][]byte) *Filterload
 		}
 	}
 	return &Filterload{
-		Count:      common.NewVarInt(uint64(size)),
+		Length:      common.NewVarInt(uint64(size)),
 		Filter:     byteArray,
 		NHashFuncs: nHashfuncs,
 		NTweak:     nTweakUint32,
@@ -55,7 +55,7 @@ func (f *Filterload) Encode() []byte {
 	binary.LittleEndian.PutUint32(nHashFuncsBytes, f.NHashFuncs)
 	binary.LittleEndian.PutUint32(nTweakByte, f.NHashFuncs)
 	return bytes.Join([][]byte{
-		f.Count.Encode(),
+		f.Length.Encode(),
 		f.Filter,
 		nHashFuncsBytes,
 		nTweakByte,
