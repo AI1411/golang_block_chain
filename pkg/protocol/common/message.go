@@ -7,7 +7,10 @@ import (
 	"log"
 )
 
-const MessageLen = 24
+const (
+	MessageLen = 24
+	MagicTestnet3 = uint32(118034699)
+)
 
 type Message struct {
 	Magic    uint32
@@ -24,7 +27,7 @@ func NewMessage(command [12]byte, payload []byte) *Message {
 
 	log.Printf("receive command:%s", string(command[:]))
 	return &Message{
-		Magic:    binary.LittleEndian.Uint32([]byte{0x0B, 0x11, 0x09, 0x07}),
+		Magic:    MagicTestnet3,
 		Command:  command,
 		Length:   uint32(len(payload)),
 		Checksum: checksum,
@@ -68,7 +71,9 @@ func IsValidChecksum(checksum [4]byte, payload []byte) bool {
 	hashedPayload := util.Hash256(payload)
 	var payloadChecksum [4]byte
 	copy(payloadChecksum[:], hashedPayload[0:4])
-	log.Printf("checksum:%+v", checksum)
-	log.Printf("payloadChecksum: %+v", payloadChecksum)
 	return checksum == payloadChecksum
+}
+
+func IsTestnet3(magic uint32) bool {
+	return magic == MagicTestnet3
 }
