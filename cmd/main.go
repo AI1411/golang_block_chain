@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	c := client.NewClient("[2604:a880:2:d0::2065:5001]:18333")
+	c := client.NewClient("[2001:41d0:a:f7eb::1]:18333")
 	defer c.Conn.Close()
 	log.Printf("remote addr: %s", c.Conn.RemoteAddr().String())
 	spv := spv.NewSPV(c)
@@ -35,6 +35,9 @@ func main() {
 	getblocks := message.NewGetBlocks(uint32(70015), [][32]byte{reversedStartBlockHash}, message.ZeroHash)
 	spv.Client.SendMessage(getblocks)
 
-	spv.MessageHandler()
+	if err := spv.MessageHandler(); err != nil {
+		log.Printf("main: message handler err:", err)
+	}
+
 	log.Printf("finish")
 }

@@ -22,7 +22,6 @@ func NewSPV(client *client.Client) *SPV {
 	key.GenerateKey()
 	serializedPubKey := key.PublicKey.SerializeUncompressed()
 	address := util.EncodeAddress(serializedPubKey)
-	//log.Printf("address:%s", address)
 	return &SPV{
 		Client:  client,
 		Key:     key,
@@ -37,6 +36,7 @@ func (s *SPV) Handshake() error {
 	if err != nil {
 		return err
 	}
+
 	var recvVerack, recvVersion bool
 	for {
 		if recvVerack && recvVersion {
@@ -45,7 +45,7 @@ func (s *SPV) Handshake() error {
 		}
 		buf, err := s.Client.ReceiveMessage(common.MessageLen)
 		if err != nil {
-			log.Printf("handshake Receive massage error: %+v", err)
+			log.Printf("handshake Receive message error: %+v", err)
 			return err
 		}
 
@@ -69,44 +69,47 @@ func (s *SPV) Handshake() error {
 	}
 }
 
-func (s *SPV) MessageHandler() {
+func (w *SPV) MessageHandler() error {
+	blockSize := 0
+	needBlockSize := 1
 	for {
-		buf, err := s.Client.ReceiveMessage(common.MessageLen)
+		if needBlockSize == blockSize {
+			log.Printf("====== break ======")
+			return nil
+		}
+		buf, err := w.Client.ReceiveMessage(common.MessageLen)
 		if err != nil {
-			//log.Printf("message handler err: %+v", err)
-			log.Fatal("message handler err: ", err)
-			//continue
+			return err
 		}
 		var header [24]byte
 		copy(header[:], buf)
 		msg := common.DecodeMessageHeader(header)
+		log.Printf("msg: %+v", msg)
+		b, err := w.Client.ReceiveMessage(msg.Length)
+		if err != nil {
+			return err
+		}
+		if !common.IsTestnet3(msg.Magic) {
+			log.Printf("not testnet3")
+			continue
+		}
 
 		if bytes.HasPrefix(msg.Command[:], []byte("verack")) {
-			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("version")) {
-			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("sendheaders")) {
-			s.Client.ReceiveMessage(msg.Length)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("sendcmpct")) {
-			s.Client.ReceiveMessage(msg.Length)
+		} else if bytes.HasPrefix(msg.Command[:], []byte("addr")) {
+		} else if bytes.HasPrefix(msg.Command[:], []byte("getheaders")) {
+		} else if bytes.HasPrefix(msg.Command[:], []byte("feefilter")) {
 		} else if bytes.HasPrefix(msg.Command[:], []byte("ping")) {
-			b, _ := s.Client.ReceiveMessage(msg.Length)
 			ping := message.DecodePing(b)
 			pong := message.Pong{
 				Nonce: ping.Nonce,
 			}
-			s.Client.SendMessage(&pong)
-		} else if bytes.HasPrefix(msg.Command[:], []byte("addr")) {
-			s.Client.ReceiveMessage(msg.Length)
-		} else if bytes.HasPrefix(msg.Command[:], []byte("getheaders")) {
-			s.Client.ReceiveMessage(msg.Length)
-		} else if bytes.HasPrefix(msg.Command[:], []byte("feefilter")) {
-			s.Client.ReceiveMessage(msg.Length)
+			w.Client.SendMessage(&pong)
 		} else if bytes.HasPrefix(msg.Command[:], []byte("inv")) {
-			log.Printf("msg: %+v", msg)
-			b, _ := s.Client.ReceiveMessage(msg.Length)
 			inv, _ := message.DecodeInv(b)
-			log.Printf("inv: %+v", inv.Count)
+			log.Printf("inv.Count: %+v", inv.Count)
 
 			inventory := []*message.InvVect{}
 			for _, iv := range inv.Inventory {
@@ -114,30 +117,54 @@ func (s *SPV) MessageHandler() {
 					inventory = append(inventory, message.NewInvVect(message.InvTypeMsgFilteredBlock, iv.Hash))
 				}
 			}
-			s.Client.SendMessage(message.NewGetData(inventory))
+			log.Printf("inventory len: %+v", len(inventory))
+			needBlockSize = len(inventory)
+			log.Printf("needBlockSize: %+v", needBlockSize)
+			_, err := w.Client.SendMessage(message.NewGetData(inventory))
+			if err != nil {
+				log.Fatalf("inv: send getdata message error: %+v", err)
+			}
 		} else if bytes.HasPrefix(msg.Command[:], []byte("merkleblock")) {
-			b, _ := s.Client.ReceiveMessage(msg.Length)
+			if !common.IsValidChecksum(msg.Checksum, b) {
+				log.Printf("invalid checksum")
+				continue
+			}
+			blockSize++
+			log.Printf("blockSize: %+v", blockSize)
+
 			mb, _ := message.DecodeMerkleBlock(b)
 			log.Printf("merkleblock: %+v", mb)
-			h := mb.GetBlockHash()
-			hexHash := hex.EncodeToString(util.ReverseBytes(h[:]))
-			log.Printf("BlockHash: %s", hexHash)
-			log.Printf("Hashes length:%+v", len(mb.Hashes))
+			log.Printf("hashCount: %+v", mb.HashCount.Data)
+			if mb.HashCount.Data == 0 {
+				continue
+			}
+			log.Printf("block hash: %s", mb.GetBlockHash())
 			txHashes := mb.Validate()
-			log.Printf("txhashes: %+v", txHashes)
-			inventory := []*message.InvVect{}
+			log.Printf("txHashes len: %+v", len(txHashes))
+			for _, txHash := range txHashes {
+				stringHash := hex.EncodeToString(util.ReverseBytes(txHash[:]))
+				log.Printf("string txHash: %s", stringHash)
+			}
+			var inventory []*message.InvVect
 			for _, txHash := range txHashes {
 				inventory = append(inventory, message.NewInvVect(message.InvTypeMsgTx, txHash))
 			}
-			s.Client.SendMessage(message.NewGetData(inventory))
+			_, err := w.Client.SendMessage(message.NewGetData(inventory))
+			if err != nil {
+				log.Fatalf("merkleblock: send getdata message error: %+v", err)
+			}
 		} else if bytes.HasPrefix(msg.Command[:], []byte("tx")) {
-			b, _ := s.Client.ReceiveMessage(msg.Length)
 			tx, _ := message.DecodeTx(b)
 			log.Printf("tx: %+v", tx)
-			log.Printf("txID: %+v", tx.ID())
+			log.Printf("txhash: %+v", tx.ID())
+		} else if bytes.HasPrefix(msg.Command[:], []byte("notfound")) {
+			getdata, _ := message.DecodeGetData(b)
+			log.Printf("getdata: %+v", getdata)
+			for _, v := range getdata.Inventory {
+				log.Printf("inventory: %+v", v)
+			}
 		} else {
-			log.Printf("receive: other")
-			s.Client.ReceiveMessage(msg.Length)
+			log.Printf("receive : other")
 		}
 	}
 }
