@@ -25,7 +25,7 @@ func main() {
 	pubKeyHash := util.Hash160(spv.Key.PublicKey.SerializeUncompressed())
 	spv.Client.SendMessage(message.NewFilterload(1024, 10, [][]byte{pubKeyHash}))
 
-	startBlockHash, err := hex.DecodeString("000000000000020c54ca0a429835b14ba2f1629562547d39a0523af5dd518865")
+	startBlockHash, err := hex.DecodeString("00000000000000183a8addcaaa69faa69b5c818589df645212a349680c1af053")
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)

@@ -49,3 +49,13 @@ func DecodeGetData(b []byte) (*GetData, error) {
 		Inventory: inventory,
 	}, nil
 }
+
+func (g *GetData) FilterInventoryWithType(typ uint32) []*InvVect {
+	inventory := []*InvVect{}
+	for _, invvect := range g.Inventory {
+		if invvect.Type == typ {
+			inventory = append(inventory, invvect)
+		}
+	}
+	return inventory
+}

@@ -2,6 +2,7 @@ package message
 
 import (
 	"block_chain_go/pkg/protocol/common"
+	"block_chain_go/pkg/protocol/script"
 	"block_chain_go/pkg/util"
 	"bytes"
 	"encoding/binary"
@@ -17,6 +18,12 @@ type Tx struct {
 	LockTime   uint32
 }
 
+type Utxo struct {
+	Hash  [32]byte
+	N     uint32
+	TxOut *TxOut
+}
+
 func NewTx(version uint32, txin []*TxIn, txout []*TxOut, locktime uint32) *Tx {
 	return &Tx{
 		Version:    version,
@@ -26,6 +33,12 @@ func NewTx(version uint32, txin []*TxIn, txout []*TxOut, locktime uint32) *Tx {
 		TxOut:      txout,
 		LockTime:   locktime,
 	}
+}
+
+func (tx *Tx) Command() [12]byte {
+	var commandName [12]byte
+	copy(commandName[:], "tx")
+	return commandName
 }
 
 func (tx *Tx) ID() [32]byte {
@@ -108,4 +121,18 @@ func DecodeTx(b []byte) (*Tx, error) {
 		TxOut:      txOuts,
 		LockTime:   lockTime,
 	}, nil
+}
+
+func (tx *Tx) GetUtxo(publicKeyHash []byte) []*Utxo {
+	var utxo []*Utxo
+	for index, txout := range tx.TxOut {
+		if bytes.HasPrefix(txout.LockingScript.Data, script.CreateLockingScriptForPKH(publicKeyHash)) {
+			utxo = append(utxo, &Utxo{
+				Hash:  tx.ID(),
+				N:     uint32(index),
+				TxOut: txout,
+			})
+		}
+	}
+	return utxo
 }

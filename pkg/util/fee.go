@@ -3,7 +3,7 @@ package util
 import "math"
 
 func CalculateFee(satoshiPerByte uint64, utxoCount uint64) uint64 {
-	var baseTransactionSize = 8 + 1 + (32+4+1+95+4)*utxoCount + 1 + 32*2
+	var baseTransactionSize = 8 + 1 + (4+4+1+95+4)*utxoCount + 1 + 32*2
 
 	totalTransactionSize := baseTransactionSize
 	virtualTransactionSize := math.Ceil((float64(baseTransactionSize)*3 + float64(totalTransactionSize)) / 4)
